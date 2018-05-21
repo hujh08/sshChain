@@ -23,7 +23,7 @@ function path_join() {
 
     for bname in "$@"
     do
-        echo -n "${dirname%/}/${basename} "
+        echo -n "${dirname%/}/${bname} "
     done
     # local basename=$2
     # echo "${dirname%/}/${basename}"
@@ -109,9 +109,9 @@ function exec_scp() {
         echo '    no mkdir'
     fi
 
+    # scp $scp_opt ${args[@]} || exit -1
     echo '|1'
     return
-    scp $scp_opt ${args[@]} || exit -1
 }
 
 routname=`basename $0`
