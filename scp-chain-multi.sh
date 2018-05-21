@@ -54,12 +54,12 @@ function ssh_exec() {
     echo "exec ssh" >&2
     local host="$1"
     local commd="$2"
-    #ssh $@ || exit -1
     echo "    narg: ${#args[@]}" >&2
     echo "    args: $@" >&2
     echo "    host: $host" >&2
     echo "    command: $commd" >&2
-    eval "$commd" || exit -1
+    # eval "$commd" || exit -1
+    ssh $@ || exit -1
 }
 
 function _exec_host() {
@@ -103,20 +103,21 @@ function exec_scp() {
 
     if [ "$dir_force" ]
     then
-        echo '    mkdir'
-        # mkdir_ifnotd $dst || exit -1
-    else
-        echo '    no mkdir'
+        # echo '    mkdir'
+        mkdir_ifnotd $dst || exit -1
+    # else
+    #     echo '    no mkdir'
     fi
 
-    # scp $scp_opt ${args[@]} || exit -1
+    scp $scp_opt ${args[@]} || exit -1
     echo '|1'
-    return
+    # return
 }
 
 routname=`basename $0`
-routine_host="./$routname"
-# routine_host="~/$routname"
+binpath='~/'
+# routine_host="./$routname"
+routine_host="$binpath$routname"
 
 # original args
 echo "==================================="
