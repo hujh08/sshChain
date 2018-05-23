@@ -50,3 +50,13 @@ do
 
     echo -e "\tcp $fname \$(bindir)/$fexe">>$makef
 done
+
+echo >>$makef
+echo "clean:">>$makef
+for fname in `ls *.sh | grep -i chain`
+do
+    fexe=${fname%.sh}
+    echo "rm $bindir/$fexe"
+
+    echo -e "\trm \$(bindir)/$fexe">>$makef
+done
