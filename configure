@@ -1,0 +1,52 @@
+#!/bin/bash
+
+function USAGE() {
+    echo "Usage: $0 [OPTION]"
+    echo "OPTION:"
+    echo "  -h, --help      help"
+    echo "  -p, --prefix    prefix directory"
+    echo "  -c, --clean    rm makefile"
+}
+
+makef=makefile
+
+# parse options
+prefix='/usr/local'
+
+ARGS=`getopt -o hp:c --long help,prefix:,clean -n $0 -- "$@"`
+if [ $? != 0 ]; then USAGE; exit -1; fi
+
+eval set -- "$ARGS"
+while :
+do
+    opt="$1"
+    case "$1" in
+        -h|--help) USAGE; exit;;
+        -c|--clean) echo "remove $makef"; rm $makef; exit;;
+        -p|--prefix) prefix=$2; shift 2;;
+        --) shift; break;;
+    esac
+done
+
+if [ x"$prefix" != x"/" ]; then prefix=${prefix%/}/; fi
+
+bindir=${prefix}bin
+echo "prefix: $prefix"
+
+
+cat >$makef <<EOF
+bindir=$bindir
+
+all:
+	echo "all finished"
+
+install:
+EOF
+
+for fname in `ls *.sh | grep -i chain`
+do
+    fexe=${fname%.sh}
+    echo "$fname ==> $bindir/$fexe"
+
+    echo -e "\tcp $fname \$(bindir)/$fexe">>$makef
+done
