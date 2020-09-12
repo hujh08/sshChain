@@ -12,7 +12,14 @@ function name_split() {
     local fname=$1
     filename=${fname##*:}
     remote=${fname%${filename}}
-    echo "\"$filename\" \"${remote%:}\""
+    remote=${remote%:}  # if : exists, delete it
+
+    # url and port, format xxx.xxx.xxx.xxx[pxxx]
+    up=${remote##*@}   # url and port
+    arr_up=(${up/p/ })
+    port=${arr_up[1]}
+    host=${remote%p${port}}
+    echo "\"$filename\" \"$host\" \"$port\""
 }
 
 function path_dname() {
@@ -224,10 +231,12 @@ echo
 eval split_src=(`name_split "$file_src"`)
 fname_src=${split_src[0]}
 host_src=${split_src[1]}
+port_src=${split_src[2]}
 
 eval split_dst=(`name_split "$file_dst"`)
 fname_dst=${split_dst[0]}
 host_dst=${split_dst[1]}
+# port_dst=${split_dst[2]}
 
 bname_src=`basename "$fname_src"`
 
@@ -272,8 +281,23 @@ then
         eval split_nxt=(`name_split "$file_nxt"`)
         fname_nxt=${split_nxt[0]}
         host_nxt=${split_nxt[1]}
+        port_nxt=${split_nxt[2]}
         dname_nxt=`path_dname "$fname_nxt"`
 
+        # reconstruct file_nxt
+        file_nxt="${host_nxt}:${fname_nxt}"
+
+        # handle port
+        if [ -z "$port_nxt" ]
+        then
+            ssh=ssh
+            scp=scp
+        else
+            ssh="ssh -p $port_nxt"
+            scp="scp -P $port_nxt"
+        fi
+
+        # a little treatment to filename
         file_nxt_2q=`path_escape_quote "$file_nxt"`
         fname_nxt_q=`path_escape "$fname_nxt"`
         dname_nxt_q=`path_escape "$dname_nxt"`
@@ -287,13 +311,13 @@ then
         #command in next host
         commd_host="[ -d $fname_nxt_q ] && echo \\\"\$fname_nxt\\\""
         commd_host="$commd_host || echo \\\"$fname_nxt\\\""
-        commd_host="fname_nxt=\$(ssh \"$host_nxt\" \"$commd_host\")"
+        commd_host="fname_nxt=\$($ssh \"$host_nxt\" \"$commd_host\")"
 
         commd_fnm="$commd_init; $commd_host"
         commd_fnm="$commd_fnm; echo \"next fname=[\$fname_nxt]\""
 
         # scp command
-        commd_scp="scp $scp_opt \"\$fname\" $file_nxt_2q"
+        commd_scp="$scp $scp_opt \"\$fname\" $file_nxt_2q"
 
         # assign vars in ssh
         commd_var_nxt="fname=\${fname_nxt// /'\ '}"
@@ -310,7 +334,7 @@ then
             commd_pre_q=`command_quote "$commd"`
             commd_nxt="$commd_var_nxt; $commd_pre_q"
 
-            commd="$commd_now; ssh \"$host_nxt\" \"$commd_nxt\""
+            commd="$commd_now; $ssh \"$host_nxt\" \"$commd_nxt\""
         fi
 
         ((n--))
@@ -345,16 +369,29 @@ then
     echo "from remote to local"
 
     # command in the second remote host
-    file_pre=$file_src
     fname_pre=$fname_src
     host_pre=$host_src
+    port_pre=$port_src
+    file_pre="${host_pre}:${fname_pre}"
 
     file_now=${files_rst[0]}
     eval split_now=(`name_split "$file_now"`)
     fname_now=${split_now[0]}
     host_now=${split_now[1]}
+    port_now=${split_now[2]}
     dname_now=`path_dname "$fname_now"`
-    
+
+    # handle port
+    if [ -z "$port_pre" ]
+    then
+        ssh=ssh
+        scp=scp
+    else
+        ssh="ssh -p $port_pre"
+        scp="scp -P $port_pre"
+    fi
+
+    # a little treatment to filename
     file_pre_q=`path_escape "$file_pre"`
     fname_now_q=`path_escape "$fname_now"`
 
@@ -363,7 +400,7 @@ then
     commd_fnm="$commd_fnm || echo \"$fname_now\""
 
     # command to scp
-    commd_scp="scp $scp_opt \"$file_pre_q\" $fname_now_q"
+    commd_scp="$scp $scp_opt \"$file_pre_q\" $fname_now_q"
 
     # join these two
     commd="$commd_fnm; $commd_scp"
@@ -376,16 +413,29 @@ then
     ((n=1))
     while :
     do
-        file_pre=$file_now
         fname_pre=$fname_now
         host_pre=$host_now
+        port_pre=$port_src
+        file_pre="${host_pre}:${fname_pre}"
 
         file_now=${files_rst[$n]}
         eval split_now=(`name_split "$file_now"`)
         fname_now=${split_now[0]}
         host_now=${split_now[1]}
+        port_now=${split_now[2]}
         dname_now=`path_dname "$fname_now"`
 
+        # handle port
+        if [ -z "$port_pre" ]
+        then
+            ssh=ssh
+            scp=scp
+        else
+            ssh="ssh -p $port_pre"
+            scp="scp -P $port_pre"
+        fi
+
+        # a little treatment to filename
         fname_now_q=`path_escape "$fname_now"`
 
         # capture filename in previous host in previous command
@@ -394,7 +444,7 @@ then
         echo "command $n: [$commd]"
         echo "quoted pre command: [$commd_pre_q]"
         echo
-        commd_pre="fname=\$(ssh \"$host_pre\" \"$commd_pre_q\")"
+        commd_pre="fname=\$($ssh \"$host_pre\" \"$commd_pre_q\")"
         commd_pre="$commd_pre; echo \"pre fname=[\$fname]\" >&2"
 
         # command for basename
@@ -410,7 +460,7 @@ then
         commd_svar="pfile_q=\"$host_pre:\${fname// /'\ '}\""
         commd_svar="$commd_svar; echo \"quoted pre file=[\$pfile_q]\" >&2"
         commd_svar="$commd_svar; echo >&2"
-        commd_scp="scp $scp_opt \"\$pfile_q\" $fname_now_q"
+        commd_scp="$scp $scp_opt \"\$pfile_q\" $fname_now_q"
         commd_scp="$commd_svar; $commd_scp"
 
         # join the uppers
