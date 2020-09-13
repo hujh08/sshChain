@@ -11,6 +11,16 @@ function USAGE() {
     echo "  -a, --all      execute command in all hosts along chain"
 }
 
+function host_split() {
+    local host=$1
+    # url and port, format xxx.xxx.xxx.xxx[pxxx]
+    up=${host##*@}   # url and port
+    arr_up=(${up/p/ })
+    port=${arr_up[1]}
+    host=${host%p${port}}
+    echo "\"$host\" \"$port\""
+}
+
 # parse options
 exec_all=''
 
@@ -54,10 +64,21 @@ nhost=${#hosts[@]}
 commd=${args[-1]}
 commd_init="$commd"
 
-host_nxt=${hosts[0]}
+eval arr_nxt=(`host_split "${hosts[0]}"`)
+host_nxt=${arr_nxt[0]}
+port_nxt=${arr_nxt[1]}
 
 echo "number of hosts: $nhost"
 echo "next host: $host_nxt"
+
+# port
+if [ -z "$port_nxt" ]
+then
+    ssh_nxt=ssh
+else
+    ssh_nxt="ssh -p $port_nxt"
+    echo "next port: $port_nxt"
+fi
 
 # nested command
 ((n=nhost-1))
@@ -65,10 +86,22 @@ while :
 do
     if((n==0)); then break; fi
     host=${hosts[$n]}
+    eval arr=(`host_split "$host"`)
+    host=${arr[0]}
+    port=${arr[1]}
 
+    # port
+    if [ -z "$port" ]
+    then
+        ssh=ssh
+    else
+        ssh="ssh -p $port"
+    fi
+    
+    # command
     commd=${commd//'\'/'\\'}
     commd=${commd//'"'/'\"'}
-    commd="ssh $host \"$commd\""
+    commd="$ssh $host \"$commd\""
 
     if [ "$exec_all" ]
     then
@@ -81,4 +114,4 @@ done
 echo "command: [$commd]"
 echo
 
-ssh $host_nxt "$commd"
+$ssh_nxt $host_nxt "$commd"
