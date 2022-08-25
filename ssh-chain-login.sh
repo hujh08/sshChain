@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# load remote host through a chain of hosts
+# login into remote host through a chain of hosts
 
 echo "number of args: $#"
 
